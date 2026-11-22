@@ -80,9 +80,6 @@ def generate_reply(client: genai.Client, system_prompt: str, history: list[dict]
             system_instruction=system_prompt,
             temperature=0.2,
             max_output_tokens=MAX_OUTPUT_TOKENS,
-            # Stops thinking tokens from eating the output budget.
-            # If your model rejects this setting (400 error), remove this line.
-            thinking_config=types.ThinkingConfig(thinking_budget=0),
         ),
     )
     return response.text or "I couldn't generate a response. Please try rephrasing your question."
