@@ -88,11 +88,19 @@ def main() -> None:
         layout="centered",
     )
 
-    st.title("Ask About Mandar Khandekar")
-    st.caption(
-        "Senior Consultant | Banking & Payments | Agentic AI for Enterprise Workflows (18+ Yrs) · "
-        "[LinkedIn](https://www.linkedin.com/in/mandarkhandekar)"
-    )
+    header_col, clear_col = st.columns([5, 1])
+    with header_col:
+        st.title("Ask About Mandar Khandekar")
+        st.caption(
+            "Senior Consultant | Banking & Payments | Agentic AI for Enterprise Workflows (18+ Yrs) · "
+            "[LinkedIn](https://www.linkedin.com/in/mandarkhandekar)"
+        )
+    with clear_col:
+        if st.session_state.get("messages"):
+            if st.button("Clear chat", use_container_width=True):
+                st.session_state.messages = []
+                st.session_state.turn_count = 0
+                st.rerun()
 
     try:
         profile_md = load_profile_text()
@@ -107,16 +115,15 @@ def main() -> None:
     if "turn_count" not in st.session_state:
         st.session_state.turn_count = 0
 
-    if not st.session_state.messages:
-        st.markdown("**Try asking:**")
-        cols = st.columns(2)
-        for idx, prompt in enumerate(STARTER_PROMPTS):
-            if cols[idx % 2].button(prompt, use_container_width=True):
-                st.session_state.pending_prompt = prompt
-
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
+
+    with st.expander("Suggested questions", expanded=not st.session_state.messages):
+        cols = st.columns(2)
+        for idx, prompt in enumerate(STARTER_PROMPTS):
+            if cols[idx % 2].button(prompt, key=f"starter_{idx}", use_container_width=True):
+                st.session_state.pending_prompt = prompt
 
     user_input = st.chat_input(
         "Ask about experience, payments domain, or Agentic AI projects...",
@@ -127,7 +134,7 @@ def main() -> None:
     if prompt_to_run:
         if st.session_state.turn_count >= MAX_TURNS_PER_SESSION:
             st.warning(
-                "Session question limit reached. Please refresh the page or reach out to "
+                "Session question limit reached. Please click Clear chat or reach out to "
                 "mandarkhandekar@gmail.com."
             )
             st.stop()
@@ -147,12 +154,13 @@ def main() -> None:
                         user_question=prompt_to_run,
                     )
                 except genai_errors.ClientError as exc:
+                    st.session_state.messages.pop()
                     st.error(f"Gemini API error ({exc.code}): {exc.message}")
                     st.stop()
-                st.markdown(reply)
 
         st.session_state.messages.append({"role": "assistant", "content": reply})
         st.session_state.turn_count += 1
+        st.rerun()
 
 
 if __name__ == "__main__":
