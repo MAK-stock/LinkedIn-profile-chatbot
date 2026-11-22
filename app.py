@@ -13,10 +13,11 @@ from pathlib import Path
 
 import streamlit as st
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
 
 PROFILE_PATH = Path(__file__).parent / "mandar_khandekar_profile.md"
-MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+MODEL_NAME = os.getenv("GEMINI_MODEL") or st.secrets.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
 MAX_TURNS_PER_SESSION = 20
 MAX_INPUT_CHARS = 500
 
@@ -54,9 +55,9 @@ PROFILE CONTEXT:
 
 
 def get_client() -> genai.Client:
-    api_key = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY", None)
+    api_key = (os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY", "")).strip()
     if not api_key:
-        st.error("Missing GEMINI_API_KEY. Set it as an environment variable or in .streamlit/secrets.toml.")
+        st.error("Missing GEMINI_API_KEY. Set it as an environment variable or in Streamlit Secrets.")
         st.stop()
     return genai.Client(api_key=api_key)
 
@@ -106,7 +107,6 @@ def main() -> None:
     if "turn_count" not in st.session_state:
         st.session_state.turn_count = 0
 
-    # Starter prompt buttons when chat is empty
     if not st.session_state.messages:
         st.markdown("**Try asking:**")
         cols = st.columns(2)
@@ -139,12 +139,16 @@ def main() -> None:
         with st.chat_message("assistant"):
             with st.spinner("Checking profile..."):
                 client = get_client()
-                reply = generate_reply(
-                    client=client,
-                    system_prompt=system_prompt,
-                    history=st.session_state.messages[:-1],
-                    user_question=prompt_to_run,
-                )
+                try:
+                    reply = generate_reply(
+                        client=client,
+                        system_prompt=system_prompt,
+                        history=st.session_state.messages[:-1],
+                        user_question=prompt_to_run,
+                    )
+                except genai_errors.ClientError as exc:
+                    st.error(f"Gemini API error ({exc.code}): {exc.message}")
+                    st.stop()
                 st.markdown(reply)
 
         st.session_state.messages.append({"role": "assistant", "content": reply})
